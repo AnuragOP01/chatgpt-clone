@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(uuid())
+  fullname    String
+  username    String       @unique
+  email       String       @unique
+  password    String?
+  isActive    Boolean      @default(true)
+  chatLookups ChatLookup[] // Relation to chat sessions
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([username])
+  @@index([email])
+}
+
+model ChatLookup {
+  id          String       @id @default(uuid())
+  topicName   String?      // Topic or session name
+  description String?      // Optional description of the chat session
+  status      ChatStatus   @default(ACTIVE)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String       // Foreign key referencing User
+  questions   ChatQues[]   // Relation to questions in this session
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+model ChatQues {
+  id        String    @id @default(uuid())
+  question  String    // Text of the question
+  lookup    ChatLookup @relation(fields: [lookupId], references: [id], onDelete: Cascade)
+  lookupId  String    // Foreign key referencing ChatLookup (session)
+  answer    ChatAns?  // One-to-one relation with ChatAns
+  metadata  Json?     // Optional metadata about the question (e.g., source, context)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([lookupId])
+}
+
+model ChatAns {
+  id          String    @id @default(uuid())
+  answer      String    @db.Text  // Using Text type for potentially long answers
+  metadata    Json?     // Optional metadata about the answer (e.g., source, confidence score)
+  question    ChatQues  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId  String    @unique   // One-to-one relationship with question
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([questionId])
+}
+
+enum ChatStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
